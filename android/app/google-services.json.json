@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "996757631604",
+    "project_id": "tavy-app",
+    "storage_bucket": "tavy-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:996757631604:android:21bdde8720f7438b5f1721",
+        "android_client_info": {
+          "package_name": "com.example.tavy_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBanbQR-xhG06f7hlN0Hq1Y81CRYeLe30k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
