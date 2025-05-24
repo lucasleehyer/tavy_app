@@ -1,29 +1,43 @@
 name: tavy_app
-description: A Flutter app with Firebase phone authentication
-publish_to: "none"
-
-version: 1.0.0+1
+description: A Signal-style AI productivity assistant.
+publish_to: 'none'
+version: 0.1.0
 
 environment:
-  sdk: ">=3.0.0 <4.0.0"
+  sdk: ">=2.17.0 <3.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
-
-  # Firebase core + services
   firebase_core: ^2.24.2
   firebase_auth: ^4.16.0
+  firebase_auth_web: ^5.8.13
   cloud_firestore: ^4.13.0
-
-  # UI
-  cupertino_icons: ^1.0.2
+  js: ^0.6.7
+  web: ^0.5.0
+  intl: ^0.18.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^2.0.0
 
-flutter:
-  uses-material-design: true
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

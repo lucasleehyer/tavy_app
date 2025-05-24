@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'otp_input_field.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'home_screen.dart';
 
 class PhoneAuthScreen extends StatefulWidget {
@@ -14,100 +14,143 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
   final TextEditingController phoneController = TextEditingController();
   final TextEditingController otpController = TextEditingController();
 
-  String? verificationId;
-  bool otpSent = false;
-  bool isLoading = false;
+  String? _verificationId;
+  bool _codeSent = false;
+  bool _loading = false;
+  String? _statusMessage;
 
-  Future<void> verifyPhone() async {
+  Future<void> _sendCode() async {
+    setState(() {
+      _loading = true;
+      _statusMessage = null;
+    });
+
     final phone = phoneController.text.trim();
-    setState(() => isLoading = true);
+    if (phone.isEmpty) {
+      setState(() {
+        _loading = false;
+        _statusMessage = "Enter phone number";
+      });
+      return;
+    }
 
     await FirebaseAuth.instance.verifyPhoneNumber(
       phoneNumber: phone,
       verificationCompleted: (PhoneAuthCredential credential) async {
-        // Optional: handle auto-sign in
-        await FirebaseAuth.instance.signInWithCredential(credential);
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-        );
+        await _signInWithCredential(credential);
       },
       verificationFailed: (FirebaseAuthException e) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Verification failed: ${e.message}'),
-        ));
-        setState(() => isLoading = false);
-      },
-      codeSent: (String verId, int? resendToken) {
         setState(() {
-          verificationId = verId;
-          otpSent = true;
-          isLoading = false;
+          _loading = false;
+          _statusMessage = "Verification failed: ${e.message}";
         });
       },
-      codeAutoRetrievalTimeout: (String verId) {
-        setState(() => verificationId = verId);
+      codeSent: (String verificationId, int? resendToken) {
+        setState(() {
+          _verificationId = verificationId;
+          _codeSent = true;
+          _loading = false;
+        });
+      },
+      codeAutoRetrievalTimeout: (String verificationId) {
+        _verificationId = verificationId;
       },
     );
   }
 
-  Future<void> verifyOTP() async {
-    final otp = otpController.text.trim();
+  Future<void> _verifyCode() async {
+    setState(() {
+      _loading = true;
+      _statusMessage = null;
+    });
 
-    if (verificationId == null) return;
-
-    final credential = PhoneAuthProvider.credential(
-      verificationId: verificationId!,
-      smsCode: otp,
-    );
+    final code = otpController.text.trim();
+    if (_verificationId == null || code.isEmpty) {
+      setState(() {
+        _loading = false;
+        _statusMessage = "Enter OTP";
+      });
+      return;
+    }
 
     try {
-      await FirebaseAuth.instance.signInWithCredential(credential);
+      final credential = PhoneAuthProvider.credential(
+        verificationId: _verificationId!,
+        smsCode: code,
+      );
+      await _signInWithCredential(credential);
+    } on FirebaseAuthException catch (e) {
+      setState(() {
+        _loading = false;
+        _statusMessage = "OTP failed: ${e.message}";
+      });
+    }
+  }
+
+  Future<void> _signInWithCredential(PhoneAuthCredential credential) async {
+    final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+    final user = userCredential.user;
+
+    if (user != null) {
+      final userDoc = FirebaseFirestore.instance.collection('users').doc(user.uid);
+      await userDoc.set({
+        'uid': user.uid,
+        'phone': user.phoneNumber,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
-    } on FirebaseAuthException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Invalid OTP: ${e.message}'),
-      ));
     }
+
+    setState(() {
+      _loading = false;
+      _statusMessage = "✅ Signed in successfully";
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Phone Login')),
+      appBar: AppBar(title: const Text('Phone Authentication')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            if (!otpSent)
-              TextField(
-                controller: phoneController,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(labelText: 'Phone Number'),
-              ),
-            if (otpSent)
-              OtpInputField(controller: otpController),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: isLoading
-                  ? null
-                  : otpSent
-                      ? verifyOTP
-                      : verifyPhone,
-              child: Text(isLoading
-                  ? 'Processing...'
-                  : otpSent
-                      ? 'Verify OTP'
-                      : 'Send OTP'),
+            TextField(
+              controller: phoneController,
+              decoration: const InputDecoration(labelText: 'Phone Number'),
+              keyboardType: TextInputType.phone,
             ),
+            if (_codeSent)
+              TextField(
+                controller: otpController,
+                decoration: const InputDecoration(labelText: 'OTP'),
+                keyboardType: TextInputType.number,
+              ),
+            const SizedBox(height: 20),
+            _loading
+                ? const CircularProgressIndicator()
+                : ElevatedButton(
+                    onPressed: _codeSent ? _verifyCode : _sendCode,
+                    child: Text(_codeSent ? 'Verify OTP' : 'Send OTP'),
+                  ),
+            if (_statusMessage != null) ...[
+              const SizedBox(height: 16),
+              Text(
+                _statusMessage!,
+                style: const TextStyle(color: Colors.red),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
 }
+
 
 
